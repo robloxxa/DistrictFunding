@@ -1,0 +1,23 @@
+version: '3'
+
+services:
+  auth_service:
+    build:
+      dockerfile: Dockerfile
+      args:
+        SERVICE: auth
+    container_name: auth_service
+    restart: unless-stopped
+  auth_db:
+    image: postgres
+    restart: always
+    shm_size: 128mb
+    environment:
+      POSTGRES_DB: "auth_db"
+      POSTGRES_USER: "auth_user"
+      POSTGRES_PASSWORD: "test"
+
+    volumes:
+      - ./db/auth_schema.sql:/docker-entrypoint-initdb.d
+
+    
