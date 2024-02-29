@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/jwtauth"
 	"github.com/go-chi/render"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
@@ -20,7 +21,7 @@ func main() {
 	err := godotenv.Load()
 
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Fatalln("Error loading .env file")
 	}
 
 	log.Println("Connecting to database")
@@ -38,7 +39,9 @@ func main() {
 		return
 	}
 
-	log.Println("Connected to DB")
+	// Initialize JWT auth
+
+	log.Println("Connected to Database")
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -48,7 +51,9 @@ func main() {
 	r.Use(middleware.Timeout(60 * time.Second))
 	r.Use(render.SetContentType(render.ContentTypeJSON))
 
-	r.Mount("/", auth.NewAuthController(pool))
+	ja := jwtauth.New("HS256", []byte(os.Getenv("JWT_SECRET")), nil)
+
+	r.Mount("/", auth.NewAuthController(pool, ja))
 
 	if err := http.ListenAndServe(":8080", r); err != nil {
 		log.Fatal(err)

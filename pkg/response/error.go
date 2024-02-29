@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"runtime"
 
 	"github.com/go-chi/render"
 )
@@ -16,7 +17,8 @@ type ApiError struct {
 }
 
 func NewApiError(status int, err error) *ApiError {
-	log.Println(err)
+	_, file, line, _ := runtime.Caller(1)
+	log.Println(file, line, err)
 	return &ApiError{
 		status, 
 		err.Error(),
