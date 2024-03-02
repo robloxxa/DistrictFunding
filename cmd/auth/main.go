@@ -10,11 +10,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/jwtauth"
 	"github.com/go-chi/render"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/robloxxa/DistrictFunding/internal/auth"
+	"github.com/robloxxa/DistrictFunding/pkg/jwtauth"
 )
 
 func main() {
@@ -51,7 +51,7 @@ func main() {
 	r.Use(middleware.Timeout(60 * time.Second))
 	r.Use(render.SetContentType(render.ContentTypeJSON))
 
-	ja := jwtauth.New("HS256", []byte(os.Getenv("JWT_SECRET")), nil)
+	ja := jwtauth.New("HS256", []byte(os.Getenv("JWT_SECRET")))
 
 	r.Mount("/", auth.NewAuthController(pool, ja))
 

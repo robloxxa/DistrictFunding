@@ -9,10 +9,8 @@ import (
 	"github.com/go-chi/render"
 )
 
-
-
 type ApiError struct {
-	status int `json:"-"`
+	status   int
 	ErrorMsg string `json:"error"`
 }
 
@@ -20,11 +18,12 @@ func NewApiError(status int, err error) *ApiError {
 	_, file, line, _ := runtime.Caller(1)
 	log.Println(file, line, err)
 	return &ApiError{
-		status, 
+		status,
 		err.Error(),
 	}
 }
 
+// TODO: maybe change render to something else, since we don't really need to handle errors
 func (e *ApiError) Render(w http.ResponseWriter, r *http.Request) error {
 	render.Status(r, e.status)
 	return json.NewEncoder(w).Encode(e)

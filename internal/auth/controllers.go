@@ -8,22 +8,22 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/jwtauth"
 	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/robloxxa/DistrictFunding/pkg/jwtauth"
 	"github.com/robloxxa/DistrictFunding/pkg/response"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type AuthController struct {
+type Api struct {
 	router *chi.Mux
 	jwt    *jwtauth.JWTAuth
 	users  UserModel
 }
 
-func NewAuthController(db *pgxpool.Pool, ja *jwtauth.JWTAuth) *AuthController {
-	c := AuthController{
+func NewAuthController(db *pgxpool.Pool, ja *jwtauth.JWTAuth) *Api {
+	c := Api{
 		router: chi.NewRouter(),
 		users:  &userModel{db},
 		jwt:    ja,
@@ -40,7 +40,7 @@ func NewAuthController(db *pgxpool.Pool, ja *jwtauth.JWTAuth) *AuthController {
 	return &c
 }
 
-func (a *AuthController) SignUp(w http.ResponseWriter, r *http.Request) {
+func (a *Api) SignUp(w http.ResponseWriter, r *http.Request) {
 	var req SignUpRequest
 
 	err := json.NewDecoder(r.Body).Decode(&req)
@@ -50,8 +50,8 @@ func (a *AuthController) SignUp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate that request is correct
-	validator := validator.New(validator.WithRequiredStructEnabled())
-	if err := validator.Struct(req); err != nil {
+	val := validator.New(validator.WithRequiredStructEnabled())
+	if err := val.Struct(req); err != nil {
 		response.NewApiError(http.StatusBadRequest, err).Render(w, r)
 		return
 	}
@@ -81,10 +81,9 @@ func (a *AuthController) SignUp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Authorization", "Bearer "+tokenString)
-	w.WriteHeader(http.StatusOK)
 }
 
-func (a *AuthController) SignIn(w http.ResponseWriter, r *http.Request) {
+func (a *Api) SignIn(w http.ResponseWriter, r *http.Request) {
 	var req SignInRequest
 	_, _, err := jwtauth.FromContext(r.Context())
 	// TODO: see what errors could jwtauth throw in this context
@@ -98,13 +97,13 @@ func (a *AuthController) SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, err := a.users.FindByUsernameOrEmail(req.UsernameOrEmail)
-	
+
 	if err != nil {
 		switch {
-			case errors.Is(err, pgx.ErrNoRows):
-				response.NewApiError(http.StatusBadRequest, fmt.Errorf("invalid username or password")).Render(w, r)
-			default:
-				response.NewApiError(http.StatusBadRequest, err)
+		case errors.Is(err, pgx.ErrNoRows):
+			response.NewApiError(http.StatusBadRequest, fmt.Errorf("invalid username or password")).Render(w, r)
+		default:
+			response.NewApiError(http.StatusBadRequest, err)
 		}
 		return
 	}
@@ -114,7 +113,7 @@ func (a *AuthController) SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenString, err := generateJWTFromUser(a.jwt, user) 
+	tokenString, err := generateJWTFromUser(a.jwt, user)
 	if err != nil {
 		response.NewApiError(http.StatusBadRequest, err).Render(w, r)
 		return
@@ -123,7 +122,7 @@ func (a *AuthController) SignIn(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Authorization", tokenString)
 }
 
-func (a *AuthController) SignOut(w http.ResponseWriter, r *http.Request) {
+func (a *Api) SignOut(w http.ResponseWriter, r *http.Request) {
 	// TODO: handle SignOut logic by either making blacklist in database or some other method like additional column for db or something
 	_, _, err := jwtauth.FromContext(r.Context())
 	if err != nil {
@@ -134,7 +133,7 @@ func (a *AuthController) SignOut(w http.ResponseWriter, r *http.Request) {
 	w.Header().Del("Authorization")
 }
 
-func (a *AuthController) Me(w http.ResponseWriter, r *http.Request) {
+func (a *Api) Me(w http.ResponseWriter, r *http.Request) {
 	_, claims, err := jwtauth.FromContext(r.Context())
 	if err != nil {
 		response.NewApiError(http.StatusUnauthorized, err).Render(w, r)
@@ -161,7 +160,7 @@ func (a *AuthController) Me(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *AuthController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (a *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a.router.ServeHTTP(w, r)
 }
 
