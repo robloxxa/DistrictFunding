@@ -5,8 +5,6 @@ import (
 	"log"
 	"net/http"
 	"runtime"
-
-	"github.com/go-chi/render"
 )
 
 type ApiError struct {
@@ -23,8 +21,14 @@ func NewApiError(status int, err error) *ApiError {
 	}
 }
 
-// TODO: maybe change render to something else, since we don't really need to handle errors
-func (e *ApiError) Render(w http.ResponseWriter, r *http.Request) error {
-	render.Status(r, e.status)
-	return json.NewEncoder(w).Encode(e)
+func (e *ApiError) WriteResponse(w http.ResponseWriter) {
+	w.WriteHeader(e.status)
+	if err := json.NewEncoder(w).Encode(e); err != nil {
+		log.Fatal(err.Error())
+	}
 }
+
+//// TODO: maybe change render to something else, since we don't really need to handle errors
+//func (e *ApiError) Render(w http.ResponseWriter, r *http.Request) error {
+//	render.Status(r, e.status)
+//}

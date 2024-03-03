@@ -4,7 +4,6 @@ go 1.22.0
 
 require (
 	github.com/go-chi/chi/v5 v5.0.12
-	github.com/go-chi/jwtauth v1.2.0
 	github.com/go-chi/render v1.0.3
 	github.com/go-playground/validator/v10 v10.18.0
 	github.com/jackc/pgx v3.6.2+incompatible
@@ -29,12 +28,10 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
-	github.com/lestrrat-go/backoff/v2 v2.0.7 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.2 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/httprc v1.0.4 // indirect
 	github.com/lestrrat-go/iter v1.0.2 // indirect
-	github.com/lestrrat-go/jwx v1.1.0 // indirect
 	github.com/lestrrat-go/option v1.0.1 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

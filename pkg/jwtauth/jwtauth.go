@@ -7,6 +7,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/robloxxa/DistrictFunding/pkg/response"
 	"net/http"
+	"strings"
 )
 
 var (
@@ -51,17 +52,15 @@ func Verifier(ja *JWTAuth) func(http.Handler) http.Handler {
 	}
 }
 
-func Authenticator() func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			token, err := FromContext(r.Context())
-			if err != nil || token == nil {
-				response.NewApiError(http.StatusUnauthorized, err).Render(w, r)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
+func Authenticator(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token, err := FromContext(r.Context())
+		if err != nil || token == nil {
+			response.NewApiError(http.StatusUnauthorized, err).WriteResponse(w)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func VerifyToken(ja *JWTAuth, token string) (jwt.Token, error) {
@@ -90,7 +89,11 @@ func FromContext(ctx context.Context) (jwt.Token, error) {
 }
 
 func ParseTokenFromHeader(r *http.Request) string {
-	return r.Header.Get("Authorization")
+	bearer := r.Header.Get("Authorization")
+	if len(bearer) > 7 && strings.ToUpper(bearer[0:6]) == "BEARER" {
+		return bearer[7:]
+	}
+	return ""
 }
 
 type contextKey struct {

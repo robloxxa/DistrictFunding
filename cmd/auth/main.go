@@ -53,7 +53,7 @@ func main() {
 
 	ja := jwtauth.New("HS256", []byte(os.Getenv("JWT_SECRET")))
 
-	r.Mount("/", auth.NewAuthController(pool, ja))
+	r.Mount("/", auth.NewController(pool, ja))
 
 	if err := http.ListenAndServe(":8080", r); err != nil {
 		log.Fatal(err)
