@@ -9,7 +9,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type User struct {
+const (
+	// FindByUsernameOrEmailQuery string = `SELECT (id, username, email, first_name, last_name, password) FROM account WHERE username = $1 OR email = $1`
+
+	HasUsernameSql = `SELECT EXISTS(SELECT 1 FROM account WHERE username = $1)`
+)
+
+type Account struct {
 	Id        string    `database:"id"`
 	Username  string    `database:"username"`
 	Email     string    `database:"email"`
@@ -20,27 +26,26 @@ type User struct {
 	UpdatedAt time.Time `database:"updated_at"`
 }
 
-type UserModel interface {
-	GetByUUID(string) (*User, error)
-	GetByUsername(string) (*User, error)
+type AccountModel interface {
+	GetByUUID(string) (*Account, error)
+	GetByUsername(string) (*Account, error)
 	HasUsername(string) error
-	Insert(*User) error
-
-	FindByUsernameOrEmail(string) (*User, error)
+	Create(*Account) error
+	FindByUsernameOrEmail(string) (*Account, error)
 
 	//Truncate() error
 }
 
 // TODO: Use some scan tools to automatically scan '*' instead of writing all fields names by hand
-type userModel struct {
+type accountModel struct {
 	db *pgxpool.Pool
 }
 
-func (u *userModel) GetByUUID(uuid string) (*User, error) {
-	var user User
+func (u *accountModel) GetByUUID(uuid string) (*Account, error) {
+	var user Account
 
 	query :=
-		`SELECT (id, username, email, first_name, last_name, password) FROM "user" WHERE id = $1`
+		`SELECT (id, username, email, first_name, last_name, password) FROM account WHERE id = $1`
 
 	if err := u.db.QueryRow(context.Background(), query, uuid).Scan(&user); err != nil {
 		return nil, err
@@ -49,11 +54,11 @@ func (u *userModel) GetByUUID(uuid string) (*User, error) {
 	return &user, nil
 }
 
-func (u *userModel) GetByUsername(username string) (*User, error) {
-	var user User
+func (u *accountModel) GetByUsername(username string) (*Account, error) {
+	var user Account
 
 	query :=
-		`SELECT * FROM "user" WHERE username = $1`
+		`SELECT * FROM account WHERE username = $1`
 
 	if err := u.db.QueryRow(context.Background(), query, username).Scan(&user); err != nil {
 		return nil, err
@@ -62,11 +67,11 @@ func (u *userModel) GetByUsername(username string) (*User, error) {
 	return &user, nil
 }
 
-func (u *userModel) HasUsername(username string) error {
+func (u *accountModel) HasUsername(username string) error {
 	var exists bool
 
 	query :=
-		`SELECT EXISTS(SELECT 1 FROM "user" WHERE username = $1)`
+		`SELECT EXISTS(SELECT 1 FROM account WHERE username = $1)`
 
 	if err := u.db.QueryRow(context.Background(), query, pgx.QueryResultFormats{pgx.TextFormatCode}, username).Scan(&exists); err != nil {
 		return err
@@ -79,30 +84,37 @@ func (u *userModel) HasUsername(username string) error {
 	}
 }
 
-func (u *userModel) FindByUsernameOrEmail(usernameOrEmail string) (*User, error) {
-	var user User
-
+func (u *accountModel) FindByUsernameOrEmail(usernameOrEmail string) (*Account, error) {
 	query :=
-		`SELECT (id, username, email, first_name, last_name, password) FROM "user" WHERE username = $1 OR email = $1`
-
-	if err := u.db.QueryRow(context.Background(), query, usernameOrEmail).Scan(&user); err != nil {
-		return nil, err
-	}
-
-	return &user, nil
+		`SELECT (id, username, email, first_name, last_name, password) FROM account WHERE username = $1 OR email = $1`
+	return QueryOneRowToAddrStruct[Account](context.Background(), u.db, query, usernameOrEmail)
 }
 
-func (u *userModel) Insert(user *User) error {
+func (u *accountModel) Create(account *Account) error {
 	query :=
-		`INSERT INTO "user" (username, email, first_name, last_name, password) VALUES ($1, $2, $3, $4, $5) RETURNING id`
+		`INSERT INTO account (username, email, first_name, last_name, password) VALUES ($1, $2, $3, $4, $5) RETURNING id`
 
-	if err := u.db.QueryRow(context.Background(), query, user.Username, user.Email, user.FirstName, user.LastName, user.Password).Scan(&user.Id); err != nil {
+	if _, err := u.db.Exec(context.Background(), query, account.Username, account.Email, account.FirstName, account.LastName, account.Password); err != nil {
 		return err
 	}
 	return nil
 }
 
-//func (u *userModel) Truncate() error {
+func QueryOneRowToAddrStruct[T any](ctx context.Context, db *pgxpool.Pool, query string, arguments ...any) (*T, error) {
+	rows, err := db.Query(ctx, query, arguments...)
+	if err != nil {
+		return nil, err
+	}
+
+	t, err := pgx.CollectOneRow(rows, pgx.RowToAddrOfStructByName[T])
+	if err != nil {
+		return nil, err
+	}
+
+	return t, nil
+}
+
+//func (u *accountModel) Truncate() error {
 //	_, err := u.db.Exec(context.Background(), `TRUNCATE TABLE "user"`)
 //	return err
 //}

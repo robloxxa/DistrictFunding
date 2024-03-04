@@ -18,16 +18,16 @@ import (
 )
 
 type Controller struct {
-	router *chi.Mux
-	jwt    *jwtauth.JWTAuth
-	users  UserModel
+	router  *chi.Mux
+	jwt     *jwtauth.JWTAuth
+	account AccountModel
 }
 
 func NewController(db *pgxpool.Pool, ja *jwtauth.JWTAuth) *Controller {
 	c := Controller{
-		router: chi.NewRouter(),
-		users:  &userModel{db},
-		jwt:    ja,
+		router:  chi.NewRouter(),
+		account: &accountModel{db},
+		jwt:     ja,
 	}
 
 	c.router.Use(jwtauth.Verifier(ja))
@@ -66,7 +66,7 @@ func (a *Controller) SignUp(w http.ResponseWriter, r *http.Request) {
 
 	// Query database to see if username is already taken
 	// TODO: maybe make a separate route for checking username/email?
-	if err := a.users.HasUsername(req.Username); err != nil {
+	if err := a.account.HasUsername(req.Username); err != nil {
 		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
 		return
 	}
@@ -77,8 +77,8 @@ func (a *Controller) SignUp(w http.ResponseWriter, r *http.Request) {
 		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
 		return
 	}
-	user := &User{Username: req.Username, Email: req.Email, FirstName: req.FirstName, LastName: req.LastName, Password: string(hash)}
-	if err := a.users.Insert(user); err != nil {
+	user := &Account{Username: req.Username, Email: req.Email, FirstName: req.FirstName, LastName: req.LastName, Password: string(hash)}
+	if err := a.account.Create(user); err != nil {
 		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
 		return
 	}
@@ -104,7 +104,7 @@ func (a *Controller) SignIn(w http.ResponseWriter, r *http.Request) {
 		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
 		return
 	}
-	user, err := a.users.FindByUsernameOrEmail(req.UsernameOrEmail)
+	user, err := a.account.FindByUsernameOrEmail(req.UsernameOrEmail)
 
 	if err != nil {
 		switch {
@@ -149,7 +149,7 @@ func (a *Controller) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := a.users.GetByUUID(token.Subject())
+	user, err := a.account.GetByUUID(token.Subject())
 	if err != nil {
 		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
 		return
@@ -173,7 +173,7 @@ func (a *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a.router.ServeHTTP(w, r)
 }
 
-func generateJWTFromUser(ja *jwtauth.JWTAuth, user *User) (string, error) {
+func generateJWTFromUser(ja *jwtauth.JWTAuth, user *Account) (string, error) {
 	token, err := jwt.NewBuilder().
 		Subject(user.Id).
 		IssuedAt(time.Now()).
