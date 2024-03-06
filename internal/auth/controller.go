@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/jackc/pgx/v5"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
-	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/robloxxa/DistrictFunding/pkg/jwtauth"
 	"github.com/robloxxa/DistrictFunding/pkg/response"
@@ -105,7 +105,6 @@ func (a *Controller) SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, err := a.account.FindByUsernameOrEmail(req.UsernameOrEmail)
-
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):

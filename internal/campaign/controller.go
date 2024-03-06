@@ -2,7 +2,7 @@ package campaign
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/robloxxa/DistrictFunding/pkg/jwtauth"
@@ -12,6 +12,7 @@ import (
 
 var (
 	campaignKey = &contextKey{"campaign"}
+	errorKey    = &contextKey{"error"}
 )
 
 type Api struct {
@@ -31,10 +32,10 @@ func NewController(db *pgxpool.Pool, ja *jwtauth.JWTAuth) *Api {
 	a.r.Get("/", http.NotFound)
 
 	a.r.Route("/{campaignId}", func(r chi.Router) {
+		r.Post("/", a.CreateCampaign)
 		r.Use(a.CampaignCtx)
 		r.Get("/", a.GetCampaign)
-		//r.Post("/", a.UpdateCampaign)
-		r.Put("/", a.CreateCampaign)
+		//r.Put("/", a.UpdateCampaign)
 		r.Delete("/", a.DeleteCampaign)
 	})
 
@@ -44,25 +45,45 @@ func NewController(db *pgxpool.Pool, ja *jwtauth.JWTAuth) *Api {
 func (a *Api) CampaignCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		campaignId := chi.URLParam(r, "campaignId")
-		campaign, err := a.campaign.Get(campaignId)
-		if err != nil {
-			response.NewApiError(http.StatusNotFound, fmt.Errorf("couldn't found campaign id: %w", err))
-			return
-		}
-		ctx := context.WithValue(r.Context(), campaignKey, campaign)
+		campaign, err := a.campaign.GetById(campaignId)
+		ctx := NewCampaignContext(r.Context(), campaign, err)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
 func (a *Api) GetCampaign(w http.ResponseWriter, r *http.Request) {
-	campaign, err := CampaignFromCtx(r.Context())
+	c, err := CampaignFromCtx(r.Context())
 	if err != nil {
-		response.NewApiError(http.StatusNotFound, err)
+		response.NewApiError(http.StatusNotFound, err).WriteResponse(w)
+		return
 	}
 
+	res := GetCampaignResponse{
+		c.Id,
+		c.CreatorId,
+		c.Name,
+		c.Description,
+		c.Goal,
+		c.CurrentAmount,
+		c.Deadline,
+		c.Archived,
+		c.CreatedAt,
+		c.UpdatedAt,
+	}
+
+	if err := json.NewEncoder(w).Encode(&res); err != nil {
+		response.NewApiError(http.StatusInternalServerError, err).WriteResponse(w)
+		return
+	}
 }
 
 func (a *Api) CreateCampaign(w http.ResponseWriter, r *http.Request) {
+	var req CreateCampaignRequest
+
+	if err := json.NewEncoder(w).Encode(&c); err != nil {
+		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
+		return
+	}
 
 }
 
@@ -78,12 +99,16 @@ func (a *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a.r.ServeHTTP(w, r)
 }
 
+func NewCampaignContext(ctx context.Context, c *Campaign, err error) context.Context {
+	ctx = context.WithValue(ctx, campaignKey, c)
+	ctx = context.WithValue(ctx, errorKey, err)
+	return ctx
+}
+
 func CampaignFromCtx(ctx context.Context) (*Campaign, error) {
-	campaign, ok := ctx.Value(campaignKey).(*Campaign)
-	if !ok {
-		return nil, fmt.Errorf("no campaign found")
-	}
-	return campaign, nil
+	campaign, _ := ctx.Value(campaignKey).(*Campaign)
+	err, _ := ctx.Value(errorKey).(error)
+	return campaign, err
 }
 
 type contextKey struct {

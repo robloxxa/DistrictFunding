@@ -3,25 +3,38 @@ package campaign
 import (
 	"context"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/robloxxa/DistrictFunding/pkg/db"
 	"time"
 )
 
 type Campaign struct {
-	Id            int       `database:"id"`
-	CreatorId     string    `database:"creator_id"`
-	Name          string    `database:"name"`
-	Description   string    `database:"description"`
-	Goal          int       `database:"goal"`
-	CurrentAmount int       `database:"current_amount"`
-	Deadline      time.Time `database:"deadline"`
-	Archived      bool      `database:"archived"`
-	CreatedAt     time.Time `database:"created_at"`
-	UpdatedAt     time.Time `database:"updated_at"`
+	Id            int       `db:"id"`
+	CreatorId     string    `db:"creator_id"`
+	Name          string    `db:"name"`
+	Description   string    `db:"description"`
+	Goal          int       `db:"goal"`
+	CurrentAmount int       `db:"current_amount"`
+	Deadline      time.Time `db:"deadline"`
+	Archived      bool      `db:"archived"`
+	CreatedAt     time.Time `db:"created_at"`
+	UpdatedAt     time.Time `db:"updated_at"`
 }
 
 type CampaignDonated struct {
-	Id         int `database:"id"`
-	CampaignId int `database:"campaign_id"`
+	Id            int `db:"id"`
+	CampaignId    int `db:"campaign_id"`
+	AccountId     int `db:"account_id"`
+	AmountDonated int `db:"amount_donated"`
+}
+
+type CampaignEditHistory struct {
+	Id            int       `db:"id"`
+	CampaignId    int       `db:"campaign_id"`
+	Description   string    `db:"description"`
+	Goal          int       `db:"goal"`
+	CurrentAmount int       `db:"current_amount"`
+	Deadline      time.Time `db:"deadline"`
+	ModifiedAt    time.Time `db:"modified_at"`
 }
 
 type CampaignModel interface {
@@ -31,43 +44,38 @@ type CampaignModel interface {
 	ListByCreatorId(string) ([]Campaign, error)
 }
 
+type CampaignDonatedModel interface {
+}
+
+type CampaignEditHistoryModel interface {
+}
+
 type campaignModel struct {
 	db *pgxpool.Pool
 }
 
 func (cm *campaignModel) GetById(id string) (*Campaign, error) {
-	var c Campaign
-
 	query :=
-		`SELECT (id, creator_id, name, description, amount_needed, amount_collected) FROM Campaign WHERE id = $1`
+		`SELECT * FROM Campaign WHERE id = $1`
 
-	if err := cm.db.QueryRow(context.Background(), query, id).Scan(&c); err == nil {
-		return nil, err
-	}
-
-	return &c, nil
+	return db.QueryOneRowToAddrStruct[Campaign](context.Background(), cm.db, query, id)
 }
 
 func (cm *campaignModel) Create(c *Campaign) error {
-	query :=
-		`INSERT INTO Campaign (creator_id, name, description, goal, current_amount, deadline) VALUES ()`
+	sql :=
+		`INSERT INTO Campaign (creator_id, name, description, goal, deadline) 
+		VALUES ($1, $2, $3, $4, $5)`
 
-	if err := cm.db.QueryRow(context.Background(), query, id).Scan(&c); err == nil {
-		return nil, err
+	if _, err := cm.db.Exec(context.Background(), sql, c.CreatorId, c.Name, c.Description, c.Goal, c.Deadline); err != nil {
+		return err
 	}
-
-	return &c, nil
+	return nil
 }
 
-func (cm *campaignModel) GetById(id string) (*Campaign, error) {
-	var c Campaign
+type campaignDonatedModel struct {
+	db *pgxpool.Pool
+}
 
-	query :=
-		`SELECT (id, creator_id, name, description, amount_needed, amount_collected) FROM Campaign WHERE id = $1`
-
-	if err := cm.db.QueryRow(context.Background(), query, id).Scan(&c); err == nil {
-		return nil, err
-	}
-
-	return &c, nil
+type campaignEditHistoryModel struct {
+	db *pgxpool.Pool
 }
