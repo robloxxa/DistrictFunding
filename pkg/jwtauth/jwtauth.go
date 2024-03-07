@@ -3,6 +3,7 @@ package jwtauth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/robloxxa/DistrictFunding/pkg/response"
@@ -85,6 +86,9 @@ func NewContext(ctx context.Context, t jwt.Token, err error) context.Context {
 func FromContext(ctx context.Context) (jwt.Token, error) {
 	t, _ := ctx.Value(TokenKey).(jwt.Token)
 	err, _ := ctx.Value(ErrorKey).(error)
+	if t == nil && err == nil {
+		return nil, fmt.Errorf("token not found")
+	}
 	return t, err
 }
 

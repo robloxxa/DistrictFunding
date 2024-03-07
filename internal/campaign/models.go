@@ -7,8 +7,8 @@ type GetCampaignResponse struct {
 	CreatorId     string    `json:"creator_id"`
 	Name          string    `json:"name"`
 	Description   string    `json:"description"`
-	Goal          int       `json:"goal"`
-	CurrentAmount int       `json:"current_amount"`
+	Goal          uint      `json:"goal"`
+	CurrentAmount uint      `json:"current_amount"`
 	Deadline      time.Time `json:"deadline"`
 	Archived      bool      `json:"archived"`
 	CreatedAt     time.Time `json:"created_at"`
@@ -16,21 +16,24 @@ type GetCampaignResponse struct {
 }
 
 type (
+	// TODO: add verify to fields
 	CreateCampaignRequest struct {
-		Name          string    `json:"name"`
-		Description   string    `json:"description"`
-		Goal          int       `json:"goal"`
-		CurrentAmount int       `json:"current_amount"`
-		Deadline      time.Time `json:"deadline"`
+		Name        string    `json:"name"`
+		Description string    `json:"description"`
+		Goal        uint      `json:"goal"`
+		Deadline    time.Time `json:"deadline"`
 	}
 
-	CreateCampaignResponse struct {
-		GetCampaignResponse
-	}
+	//CreateCampaignResponse struct {
+	//	GetCampaignResponse
+	//}
 )
 
 type (
 	UpdateCampaignRequest struct {
+		Description *string    `json:"description,omitempty"`
+		Goal        *uint      `json:"goal,omitempty"`
+		Deadline    *time.Time `json:"deadline,omitempty"`
 	}
 
 	UpdateCampaignResponse struct {

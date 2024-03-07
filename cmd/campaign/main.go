@@ -33,11 +33,12 @@ func main() {
 
 	defer pool.Close()
 
-	_, err = pool.Acquire(context.Background())
+	conn, err := pool.Acquire(context.Background())
 	if err != nil {
 		fmt.Printf("Unable to acquire database connection")
 		return
 	}
+	conn.Release()
 
 	// Initialize JWT auth
 
