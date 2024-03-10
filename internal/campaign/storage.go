@@ -2,6 +2,7 @@ package campaign
 
 import (
 	"context"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/robloxxa/DistrictFunding/pkg/db"
 	"time"
@@ -66,18 +67,27 @@ func (cm *campaignModel) GetById(id string) (*Campaign, error) {
 func (cm *campaignModel) Create(c *Campaign) (*Campaign, error) {
 	query :=
 		`INSERT INTO Campaign (creator_id, name, description, goal, deadline) 
-		VALUES ($1, $2, $3, $4, $5)`
+		VALUES ($1, $2, $3, $4, $5) RETURNING *`
 
 	return db.QueryOneRowToAddrStruct[Campaign](context.Background(), cm.db, query, c.CreatorId, c.Name, c.Description, c.Goal, c.Deadline)
 }
 
 // TODO: Maybe use map[string]interface{} instead of campaign struct?
 func (cm *campaignModel) Update(c *Campaign) error {
-	historyQuery :=
-		``
-
-	query :=
-		`UPDATE Campaign SET description = $3, goal = $4, deadline = $5 WHERE id = $1`
+	tx := []string{
+		`INSERT INTO CampaignEditHistory (campaign_id, description, goal, deadline)
+	SELECT id, description, goal, deadline FROM campaign WHERE id = $1`
+	}
+	batch := &pgx.Batch{}
+	ctx := context.Background()
+	tx, err := cm.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	tx.Exec(ctx, )
+	batch.Queue(, c.Id)
+	batch.Queue(`UPDATE Campaign SET description = $2, goal = $3, deadline = $4 WHERE id = $1`)
+	batch.
 
 	_, err := cm.db.Exec(context.Background(), query, c.Id, c.Description, c.Goal, c.Deadline)
 

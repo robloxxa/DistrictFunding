@@ -19,3 +19,8 @@ func QueryOneRowToAddrStruct[T any](ctx context.Context, db *pgxpool.Pool, query
 
 	return t, nil
 }
+
+func Exec(ctx context.Context, db *pgxpool.Pool, query string, arguments ...any) error {
+	_, err := db.Exec(ctx, query, arguments)
+	return err
+}

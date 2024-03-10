@@ -33,9 +33,18 @@ func NewController(db *pgxpool.Pool, ja *jwtauth.JWTAuth) *Api {
 		&campaignDonatedModel{db},
 	}
 
-	// TODO:
+	// TODO: list campaigns
+	//a.r.Get("/", http.NotFound)
 
-	a.r.Get("/", http.NotFound)
+	// Campaign creating route
+	a.r.Group(func(r chi.Router) {
+		r.Use(jwtauth.Verifier(ja))
+		r.Use(jwtauth.Authenticator)
+
+		r.Post("/", a.CreateCampaign)
+	})
+
+	// All routes with campaignId as path parameter
 	a.r.Route("/{campaignId}", func(r chi.Router) {
 		r.Use(a.CampaignCtx)
 		r.Get("/", a.GetCampaign)
@@ -43,10 +52,10 @@ func NewController(db *pgxpool.Pool, ja *jwtauth.JWTAuth) *Api {
 		r.Group(func(r chi.Router) {
 			r.Use(jwtauth.Verifier(ja))
 			r.Use(jwtauth.Authenticator)
+			r.Use(IsCampaignOwner)
 
-			r.Post("/", a.CreateCampaign)
-			r.With(IsCampaignOwner).Put("/", a.UpdateCampaign)
-			r.With(IsCampaignOwner).Delete("/", a.DeleteCampaign)
+			r.Put("/", a.UpdateCampaign)
+			r.Delete("/", a.DeleteCampaign)
 		})
 	})
 
@@ -66,18 +75,18 @@ func IsCampaignOwner(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, err := jwtauth.FromContext(r.Context())
 		if err != nil {
-			response.NewApiError(http.StatusUnauthorized, err).WriteResponse(w)
+			response.Error(w, http.StatusUnauthorized, err)
 			return
 		}
 
 		campaign, err := CampaignFromCtx(r.Context())
 		if err != nil {
-			response.NewApiError(http.StatusUnauthorized, err).WriteResponse(w)
+			response.Error(w, http.StatusUnauthorized, err)
 			return
 		}
 
 		if token.Subject() != campaign.CreatorId {
-			response.NewApiError(http.StatusUnauthorized, fmt.Errorf("campaign creator id is not equal to requester id")).WriteResponse(w)
+			response.Error(w, http.StatusUnauthorized, fmt.Errorf("campaign creator id is not equal to requester id"))
 			return
 		}
 
@@ -90,7 +99,7 @@ func (a *Api) GetCampaign(w http.ResponseWriter, r *http.Request) {
 
 	c, err := CampaignFromCtx(r.Context())
 	if err != nil {
-		response.NewApiError(http.StatusNotFound, err).WriteResponse(w)
+		response.Error(w, http.StatusNotFound, err)
 		return
 	}
 
@@ -107,10 +116,7 @@ func (a *Api) GetCampaign(w http.ResponseWriter, r *http.Request) {
 		c.UpdatedAt,
 	}
 
-	if err := json.NewEncoder(w).Encode(&res); err != nil {
-		response.NewApiError(http.StatusInternalServerError, err).WriteResponse(w)
-		return
-	}
+	response.Json(w, &res)
 }
 
 func (a *Api) CreateCampaign(w http.ResponseWriter, r *http.Request) {
@@ -120,12 +126,12 @@ func (a *Api) CreateCampaign(w http.ResponseWriter, r *http.Request) {
 
 	token, err := jwtauth.FromContext(r.Context())
 	if err != nil {
-		response.NewApiError(http.StatusUnauthorized, err).WriteResponse(w)
+		response.Error(w, http.StatusUnauthorized, err)
 		return
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -139,89 +145,106 @@ func (a *Api) CreateCampaign(w http.ResponseWriter, r *http.Request) {
 
 	c, err = a.campaign.Create(c)
 	if err != nil {
-		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, err)
 		return
 	}
+
+	res := CreateCampaignResponse{
+		c.Id,
+		c.CreatorId,
+		c.Name,
+		c.Description,
+		c.Goal,
+		c.CurrentAmount,
+		c.Deadline,
+		c.Archived,
+		c.CreatedAt,
+		c.UpdatedAt,
+	}
+	w.Header().Add("Location", fmt.Sprintf("/%d", c.Id))
+	w.WriteHeader(http.StatusCreated)
+	response.Json(w, &res)
 }
 
 func (a *Api) DeleteCampaign(w http.ResponseWriter, r *http.Request) {
 	campaign, err := CampaignFromCtx(r.Context())
 	if err != nil {
-		response.NewApiError(http.StatusNotFound, err).WriteResponse(w)
+		response.Error(w, http.StatusNotFound, err)
 		return
 	}
 
 	token, err := jwtauth.FromContext(r.Context())
 	if err != nil {
-		response.NewApiError(http.StatusUnauthorized, err).WriteResponse(w)
+		response.Error(w, http.StatusUnauthorized, err)
 		return
 	}
 
 	if campaign.CreatorId != token.Subject() {
-		response.NewApiError(http.StatusBadRequest, fmt.Errorf("you can't delete campaign created by other users")).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, fmt.Errorf("you can't delete campaign created by other users"))
 		return
 	}
 
 	if campaign.Archived == true {
-		response.NewApiError(http.StatusBadRequest, fmt.Errorf("campaign already archived")).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, fmt.Errorf("campaign already archived"))
 		return
 	}
 
 	// TODO: add logic to return money back to donaters
 	err = a.campaign.Archive(campaign.Id)
 	if err != nil {
-		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, err)
 		return
 	}
 }
 
 func (a *Api) UpdateCampaign(w http.ResponseWriter, r *http.Request) {
 	var (
-		req             UpdateCampaignRequest
-		campaignHistory CampaignEditHistory
+		req UpdateCampaignRequest
 	)
 	campaign, err := CampaignFromCtx(r.Context())
 	if err != nil {
-		response.NewApiError(http.StatusNotFound, err).WriteResponse(w)
+		response.Error(w, http.StatusNotFound, err)
 		return
 	}
 
 	token, err := jwtauth.FromContext(r.Context())
 	if err != nil {
-		response.NewApiError(http.StatusUnauthorized, err).WriteResponse(w)
+		response.Error(w, http.StatusUnauthorized, err)
 		return
 	}
 
 	if campaign.CreatorId != token.Subject() {
-		response.NewApiError(http.StatusBadRequest, fmt.Errorf("you can't update campaign created by other users")).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, fmt.Errorf("you can't update campaign created by other users"))
 		return
 	}
 
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, err)
 		return
+	}
+
+	if req == (UpdateCampaignRequest{}) {
+		response.Error(w, http.StatusBadRequest, fmt.Errorf("No request"))
 	}
 
 	if req.Goal != nil {
-		campaignHistory.Goal = campaign.Goal
 		campaign.Goal = *req.Goal
 	}
+
 	if req.Description != nil {
-		campaignHistory.Description = campaign.Description
 		campaign.Description = *req.Description
 	}
+
 	if req.Deadline != nil {
-		campaignHistory.Deadline = campaign.Deadline
 		campaign.Deadline = *req.Deadline
 	}
 
+	// TODO: make a multiple query that will insert old values from campaign
 	err = a.campaign.Update(campaign)
 	if err != nil {
-		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, err)
 		return
 	}
-	a.campaignHistory.Create()
-
 }
 
 func (a *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {

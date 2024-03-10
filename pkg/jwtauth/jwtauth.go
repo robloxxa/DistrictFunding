@@ -57,7 +57,7 @@ func Authenticator(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, err := FromContext(r.Context())
 		if err != nil || token == nil {
-			response.NewApiError(http.StatusUnauthorized, err).WriteResponse(w)
+			response.Error(w, http.StatusUnauthorized, err)
 			return
 		}
 		next.ServeHTTP(w, r)

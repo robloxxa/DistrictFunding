@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS CampaignEditHistory (
     description TEXT,
     goal int,
     deadline TIMESTAMPTZ,
-    modified_at timestamptz,
+    modified_at timestamptz DEFAULT current_timestamp,
     CONSTRAINT fk_campaign
         FOREIGN KEY(campaign_id)
             REFERENCES Campaign(id) ON DELETE CASCADE

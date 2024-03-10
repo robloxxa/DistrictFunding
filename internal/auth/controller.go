@@ -48,47 +48,48 @@ func (a *Controller) SignUp(w http.ResponseWriter, r *http.Request) {
 
 	token, err := jwtauth.FromContext(r.Context())
 	if token != nil {
-		response.NewApiError(http.StatusBadRequest, errors.New("already authorized")).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, errors.New("already authorized"))
 		return
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.NewApiError(http.StatusBadRequest, errors.New("failed to parse json body")).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, errors.New("failed to parse json body"))
 		return
 	}
 
 	// Validate that request is correct
 	val := validator.New(validator.WithRequiredStructEnabled())
 	if err := val.Struct(req); err != nil {
-		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, err)
 		return
 	}
 
 	// Query database to see if username is already taken
 	// TODO: maybe make a separate route for checking username/email?
 	if err := a.account.HasUsername(req.Username); err != nil {
-		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, err)
 		return
 	}
 
 	// Username is free, hashing password and storing user data in db
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, err)
 		return
 	}
 	user := &Account{Username: req.Username, Email: req.Email, FirstName: req.FirstName, LastName: req.LastName, Password: string(hash)}
 	if err := a.account.Create(user); err != nil {
-		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, err)
 		return
 	}
 	tokenString, err := generateJWTFromUser(a.jwt, user)
 	if err != nil {
-		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, err)
 		return
 	}
-
 	w.Header().Set("Authorization", "Bearer "+tokenString)
+	w.WriteHeader(http.StatusCreated)
+	response.Message(w, "User is created successfully ")
 }
 
 func (a *Controller) SignIn(w http.ResponseWriter, r *http.Request) {
@@ -96,33 +97,34 @@ func (a *Controller) SignIn(w http.ResponseWriter, r *http.Request) {
 	_, err := jwtauth.FromContext(r.Context())
 	// TODO: see what errors could jwtauth throw in this context
 	if err == nil {
-		response.NewApiError(http.StatusBadRequest, fmt.Errorf("already signed in")).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, fmt.Errorf("already signed in"))
 		return
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, err)
 		return
 	}
+
 	user, err := a.account.FindByUsernameOrEmail(req.UsernameOrEmail)
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			response.NewApiError(http.StatusBadRequest, fmt.Errorf("invalid username or password")).WriteResponse(w)
+			response.Error(w, http.StatusBadRequest, fmt.Errorf("invalid username or password"))
 		default:
-			response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
+			response.Error(w, http.StatusBadRequest, err)
 		}
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		response.NewApiError(http.StatusBadRequest, errors.New("invalid username or password")).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, errors.New("invalid username or password"))
 		return
 	}
 
 	tokenString, err := generateJWTFromUser(a.jwt, user)
 	if err != nil {
-		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -134,7 +136,7 @@ func (a *Controller) SignOut(w http.ResponseWriter, r *http.Request) {
 	// TODO: handle SignOut logic by either making blacklist in database or some other method like additional column for db or something
 	_, err := jwtauth.FromContext(r.Context())
 	if err != nil {
-		response.NewApiError(http.StatusUnauthorized, err).WriteResponse(w)
+		response.Error(w, http.StatusUnauthorized, err)
 		return
 	}
 
@@ -144,13 +146,13 @@ func (a *Controller) SignOut(w http.ResponseWriter, r *http.Request) {
 func (a *Controller) Me(w http.ResponseWriter, r *http.Request) {
 	token, err := jwtauth.FromContext(r.Context())
 	if err != nil {
-		response.NewApiError(http.StatusUnauthorized, err).WriteResponse(w)
+		response.Error(w, http.StatusUnauthorized, err)
 		return
 	}
 
 	user, err := a.account.GetByUUID(token.Subject())
 	if err != nil {
-		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
+		response.Error(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -162,10 +164,7 @@ func (a *Controller) Me(w http.ResponseWriter, r *http.Request) {
 		user.LastName,
 	}
 
-	if err := json.NewEncoder(w).Encode(&meReq); err != nil {
-		response.NewApiError(http.StatusBadRequest, err).WriteResponse(w)
-		return
-	}
+	response.Json(w, meReq)
 }
 
 func (a *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {

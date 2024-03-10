@@ -24,9 +24,7 @@ type (
 		Deadline    time.Time `json:"deadline"`
 	}
 
-	//CreateCampaignResponse struct {
-	//	GetCampaignResponse
-	//}
+	CreateCampaignResponse = GetCampaignResponse
 )
 
 type (
