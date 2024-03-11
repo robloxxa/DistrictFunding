@@ -1,23 +1,38 @@
 version: '3'
 
 services:
-  auth_service:
+  auth:
     build:
       dockerfile: Dockerfile
       args:
         SERVICE: auth
-    container_name: auth_service
+    container_name: auth-service
+    depends_on:
+      - auth-db
     restart: unless-stopped
-  auth_db:
+    networks:
+      - auth
+    ports:
+      - "8000:8000"
+  auth-db:
     image: postgres
     restart: always
     shm_size: 128mb
     environment:
-      POSTGRES_DB: "auth_db"
-      POSTGRES_USER: "auth_user"
-      POSTGRES_PASSWORD: "test"
-
+      POSTGRES_DB: ${POSTGRES_DB:-auth_db}
+      POSTGRES_USER: ${POSTGRES_DB:-auth_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-test}
+      PG_DATA: /data/postgres
     volumes:
-      - ./db/auth_schema.sql:/docker-entrypoint-initdb.d
+      - ./db/auth_schema.sql:/docker-entrypoint-initdb.d/auth_schema.sql
+      - auth_postgres:/data/postgres
+    networks:
+      - auth
 
-    
+networks:
+  auth:
+    driver: bridge
+  campaign:
+  payment:
+volumes:
+  auth_postgres:

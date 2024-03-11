@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS Campaign (
 CREATE TABLE IF NOT EXISTS CampaignDonated (
     id SERIAL PRIMARY KEY,
     campaign_id INT,
-    account_id INT NOT NULL,
+    account_id UUID NOT NULL,
     amount_donated INT NOT NULL,
     CONSTRAINT fk_campaign
         FOREIGN KEY(campaign_id)

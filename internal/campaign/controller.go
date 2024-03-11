@@ -48,11 +48,12 @@ func NewController(db *pgxpool.Pool, ja *jwtauth.JWTAuth) *Api {
 	a.r.Route("/{campaignId}", func(r chi.Router) {
 		r.Use(a.CampaignCtx)
 		r.Get("/", a.GetCampaign)
-
+		r.Get("/history", a.GetCampaignHistory) //TODO:
 		r.Group(func(r chi.Router) {
 			r.Use(jwtauth.Verifier(ja))
 			r.Use(jwtauth.Authenticator)
 			r.Use(IsCampaignOwner)
+			r.Use(IsArchived)
 
 			r.Put("/", a.UpdateCampaign)
 			r.Delete("/", a.DeleteCampaign)
@@ -94,6 +95,23 @@ func IsCampaignOwner(next http.Handler) http.Handler {
 	})
 }
 
+func IsArchived(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		campaign, err := CampaignFromCtx(r.Context())
+		if err != nil {
+			response.Error(w, http.StatusBadRequest, err)
+			return
+		}
+
+		if campaign.Archived {
+			response.Error(w, http.StatusBadRequest, fmt.Errorf("campaign is archived"))
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (a *Api) GetCampaign(w http.ResponseWriter, r *http.Request) {
 	var res GetCampaignResponse
 
@@ -117,6 +135,11 @@ func (a *Api) GetCampaign(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Json(w, &res)
+}
+
+// TODO campaign history getter with /{campaignId}/history route
+func (a *Api) GetCampaignHistory(w http.ResponseWriter, r *http.Request) {
+
 }
 
 func (a *Api) CreateCampaign(w http.ResponseWriter, r *http.Request) {
@@ -218,6 +241,11 @@ func (a *Api) UpdateCampaign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if campaign.Archived {
+		response.Error(w, http.StatusBadRequest, fmt.Errorf("campaign is archived"))
+		return
+	}
+
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, err)
 		return
@@ -239,7 +267,6 @@ func (a *Api) UpdateCampaign(w http.ResponseWriter, r *http.Request) {
 		campaign.Deadline = *req.Deadline
 	}
 
-	// TODO: make a multiple query that will insert old values from campaign
 	err = a.campaign.Update(campaign)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, err)

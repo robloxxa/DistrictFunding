@@ -8,7 +8,7 @@ import (
 	"github.com/go-chi/render"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
-	"github.com/robloxxa/DistrictFunding/internal/campaign"
+	"github.com/robloxxa/DistrictFunding/internal/payment"
 	"github.com/robloxxa/DistrictFunding/pkg/jwtauth"
 	"log"
 	"net/http"
@@ -17,7 +17,6 @@ import (
 )
 
 func main() {
-
 	err := godotenv.Load()
 
 	if err != nil {
@@ -54,8 +53,7 @@ func main() {
 
 	ja := jwtauth.New("HS256", []byte(os.Getenv("JWT_SECRET")))
 
-	r.Mount(`/`, campaign.NewController(pool, ja))
-
+	r.Mount("/", payment.NewController(pool, ja))
 	if err := http.ListenAndServe(":8181", r); err != nil {
 		log.Fatal(err)
 	}

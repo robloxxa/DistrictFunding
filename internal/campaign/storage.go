@@ -2,7 +2,6 @@ package campaign
 
 import (
 	"context"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/robloxxa/DistrictFunding/pkg/db"
 	"time"
@@ -73,23 +72,27 @@ func (cm *campaignModel) Create(c *Campaign) (*Campaign, error) {
 }
 
 // TODO: Maybe use map[string]interface{} instead of campaign struct?
+// Update updates the campaign with new values and creates a new record in campaign history with old params
 func (cm *campaignModel) Update(c *Campaign) error {
-	tx := []string{
-		`INSERT INTO CampaignEditHistory (campaign_id, description, goal, deadline)
-	SELECT id, description, goal, deadline FROM campaign WHERE id = $1`
-	}
-	batch := &pgx.Batch{}
 	ctx := context.Background()
 	tx, err := cm.db.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	tx.Exec(ctx, )
-	batch.Queue(, c.Id)
-	batch.Queue(`UPDATE Campaign SET description = $2, goal = $3, deadline = $4 WHERE id = $1`)
-	batch.
 
-	_, err := cm.db.Exec(context.Background(), query, c.Id, c.Description, c.Goal, c.Deadline)
+	defer tx.Rollback(ctx)
+
+	if _, err = tx.Exec(ctx, `INSERT INTO CampaignEditHistory (campaign_id, description, goal, deadline)
+	SELECT id, description, goal, deadline FROM campaign WHERE id = $1`, c.Id); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, `UPDATE Campaign SET description = $2, goal = $3, deadline = $4 WHERE id = $1`, c.Id, c.Description, c.Goal, c.Deadline); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return err
+	}
 
 	return err
 }
