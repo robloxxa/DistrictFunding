@@ -1,4 +1,5 @@
-version: '3'
+version: '3.9'
+
 
 services:
   auth:
@@ -7,32 +8,68 @@ services:
       args:
         SERVICE: auth
     container_name: auth-service
+    environment:
+      AUTH_POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD}
+      AUTH_POSTGRES_HOST: ${AUTH_POSTGRES_HOST}
     depends_on:
       - auth-db
     restart: unless-stopped
     networks:
       - auth
     ports:
-      - "8000:8000"
+      - "8000:8080"
   auth-db:
     image: postgres
     restart: always
     shm_size: 128mb
+    container_name: auth-db
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-auth_db}
-      POSTGRES_USER: ${POSTGRES_DB:-auth_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-test}
+      POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD}
       PG_DATA: /data/postgres
     volumes:
       - ./db/auth_schema.sql:/docker-entrypoint-initdb.d/auth_schema.sql
       - auth_postgres:/data/postgres
     networks:
       - auth
+  campaign:
+    build:
+      dockerfile: Dockerfile
+      args:
+        SERVICE: campaign
+    container_name: campaign-service
+    environment:
+      AUTH_POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD}
+      AUTH_POSTGRES_HOST: ${AUTH_POSTGRES_HOST}
+    depends_on:
+      - auth-db
+    restart: unless-stopped
+    networks:
+      - campaign
+    ports:
+      - "8000:8080"
+  campaign-db:
+    image: postgres
+    restart: always
+    shm_size: 128mb
+    container_name: campaign-db
+    environment:
+      POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD}
+      PG_DATA: /data/postgres
+    volumes:
+      - ./db/auth_schema.sql:/docker-entrypoint-initdb.d/auth_schema.sql
+      - auth_postgres:/data/postgres
+    networks:
+      - campaign
 
 networks:
   auth:
     driver: bridge
   campaign:
+    driver: bridge
   payment:
+    driver: bridge
+
 volumes:
   auth_postgres:
+  campaign_postgres:
+  payment_postgres:

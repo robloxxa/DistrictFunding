@@ -25,7 +25,11 @@ func main() {
 	}
 
 	log.Println("Connecting to database")
-	pool, err := pgxpool.New(context.Background(), fmt.Sprintf("postgres://%s:%s@%s/test", os.Getenv("POSTGRES_USER"), os.Getenv("POSTGRES_PASSWORD"), os.Getenv("POSTGRES_HOST")))
+	pool, err := pgxpool.New(context.Background(),
+		fmt.Sprintf("postgres://postgres:%s@%s/campaign_db",
+			os.Getenv("CAMPAIGN_POSTGRES_PASSWORD"),
+			os.Getenv("CAMPAIGN_POSTGRES_HOST"),
+		))
 	if err != nil {
 		fmt.Printf("Unable to create connection pool: %v", err)
 		return
