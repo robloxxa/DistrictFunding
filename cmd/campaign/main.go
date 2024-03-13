@@ -31,7 +31,7 @@ func main() {
 			os.Getenv("CAMPAIGN_POSTGRES_HOST"),
 		))
 	if err != nil {
-		fmt.Printf("Unable to create connection pool: %v", err)
+		fmt.Println(fmt.Errorf("unable to create connection pool: %w", err))
 		return
 	}
 
