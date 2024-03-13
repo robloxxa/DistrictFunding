@@ -9,6 +9,7 @@ services:
         SERVICE: auth
     container_name: auth-service
     environment:
+      JWT_SECRET: ${JWT_SECRET}
       AUTH_POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD}
       AUTH_POSTGRES_HOST: ${AUTH_POSTGRES_HOST}
     depends_on:
@@ -38,26 +39,27 @@ services:
         SERVICE: campaign
     container_name: campaign-service
     environment:
-      AUTH_POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD}
-      AUTH_POSTGRES_HOST: ${AUTH_POSTGRES_HOST}
-    depends_on:
-      - auth-db
+      JWT_SECRET: ${JWT_SECRET}
+      CAMPAIGN_POSTGRES_PASSWORD: ${CAMPAIGN_POSTGRES_PASSWORD}
+      CAMPAIGN_POSTGRES_HOST: ${CAMPAIGN_POSTGRES_HOST}
     restart: unless-stopped
+    depends_on:
+      - campaign-db
+    ports:
+      - "8001:8080"
     networks:
       - campaign
-    ports:
-      - "8000:8080"
   campaign-db:
     image: postgres
     restart: always
     shm_size: 128mb
     container_name: campaign-db
     environment:
-      POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${CAMPAIGN_POSTGRES_PASSWORD}
       PG_DATA: /data/postgres
     volumes:
-      - ./db/auth_schema.sql:/docker-entrypoint-initdb.d/auth_schema.sql
-      - auth_postgres:/data/postgres
+      - ./db/campaign_schema.sql:/docker-entrypoint-initdb.d/campaign_schema.sql
+      - campaign_postgres:/data/postgres
     networks:
       - campaign
 

@@ -1,5 +1,3 @@
-# Shamelessly stolen from docker init go
-
 ARG GO_VERSION=1.22
 FROM golang:${GO_VERSION} AS build
 ARG SERVICE
